@@ -40,6 +40,35 @@ table {
 	background-color: #f6f6f6;
 }
 
+
+/* Tooltip container */
+.tooltip {
+    display: inline-block;
+    border-bottom: 1px dotted black; /* If you want dots under the hoverable text */
+}
+
+/* Tooltip text */
+.tooltip .tooltiptext {
+    visibility: hidden;
+    background-color: black;
+    color: #fff;
+    text-align: center;
+    padding: 5px 5px;
+    border-radius: 6px;
+
+    /* Position the tooltip text - see examples below! */
+    position: absolute;
+    z-index: 1;
+}
+
+/* Show the tooltip text when you mouse over the tooltip container */
+.tooltip:hover .tooltiptext {
+    visibility: visible;
+}
+
+
+
+
 /******************************
  * TEST RESULT COLORS
  ******************************/
@@ -53,39 +82,487 @@ span.error, span.failed, span.xpassed, .error .col-result, .failed .col-result, 
 	color: red;
 }
 
-
-/******************************
- * RESULTS TABLE
- *
- * 1. Table Layout
- * 2. Extra
- * 3. Sorting items
- *
- ******************************/
-
-/*------------------
- * 1. Table Layout
- *------------------*/
-
-#results-table {
-	border: 1px solid #e6e6e6;
-	color: #999;
-	font-size: 12px;
-	width: 100%
+body, html {
+	font-family: Open Sans,sans-serif;
+	padding: 0;
+	margin: 0;
 }
 
-#results-table th, #results-table td {
-	padding: 5px;
-	border: 1px solid #E6E6E6;
-	text-align: left
-}
-#results-table th {
-	font-weight: bold
+.project-test-results-summary, .results-details {
+	padding-left: 10px;
 }
 
-/*------------------
- * 2. Extra
- *------------------*/
+.project-title {
+	font-size: 36px;
+	font-weight: 700;
+}
+
+.generated-info, .environment-info, .summary-info, .results-info {
+	padding-left: 10px;
+	padding-right: 10px;
+}
+
+.count-toggle-button {
+	border: 0;
+	border-radius: 2px;
+	color: #fff;
+	cursor: pointer;
+	font-size: 14px;
+	line-height: 1.25;
+	padding: 5.5px 14px 7.5px;
+	background-color: #484847;
+	-webkit-box-shadow: inset 0 -2px 0 0 #353535;
+	box-shadow: inset 0 -2px 0 0 #353535;
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+}
+
+.count-toggle-button {
+
+}
+
+.count-toggle-button .button-text {
+	padding-right: 10px;
+}
+
+.show-hide-buttons {
+	padding-left: 10px;
+	padding-bottom: 10px;
+}
+
+button {
+	background-color: #b5b5b5;
+	-webkit-box-shadow: inset 0 -2px 0 0 #888;
+	box-shadow: inset 0 -2px 0 0 #888;
+	border: 0;
+	border-radius: 2px;
+	color: #fff;
+	cursor: pointer;
+	display: inline-block;
+	font-size: 14px;
+	line-height: 1.25;
+	padding: 5.5px 14px 7.5px;
+	text-align: center;
+}
+
+button:hover {
+	background-color: #cfcfcf;
+}
+
+button:active {
+	background-color: #888;
+	-webkit-box-shadow: none;
+	box-shadow: none;
+}
+
+ul.top-container-list > li.results-summary-container {
+	padding-left:0;
+}
+
+.results-summary-container-header{
+	/* background-color: #389cd9; */
+	background-color: white;
+	padding: 7px 8px;
+	font-size: 14px;
+	overflow: auto;
+	cursor: pointer;
+}
+
+.node-level-description {
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+}
+
+.results-summary-numbers {
+	padding-left: 10px;
+}
+
+.results-summary-container.odd > .child-containers{
+	background-color: #CFCFCF;
+}
+.results-summary-container.even > .child-containers{
+	background-color: #E5E5E5;
+}
+
+
+.results-summary-container-header {
+	display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-direction: row;
+	color: #484847;
+	border-bottom: 1px solid #e5e5e5;
+}
+.results-summary-container-header.active {
+	background-color: #f9f9f9;
+	border-bottom: 2px solid #e5e5e5;
+}
+
+.results-summary-container-header:hover {
+	background-color: #eff4f9;
+	color: #4597cb;
+}
+
+.results-summary-numbers-wrapper {
+	display: flex;
+	align-items: center;
+	flex-direction: row;
+}
+
+.results-summary-numbers-wrapper::after {
+	margin-left: 5px;
+	content: "\25B6";
+}
+
+.results-summary-container-header.active > .results-summary-numbers-wrapper::after {
+	content: "\25BC";
+}
+
+.results-summary-numbers {
+	display: flex;
+    flex-direction: row;
+}
+
+
+/* Passed not active */
+li.results-summary-container.passed > .results-summary-container-header {
+	background-color: #78CBAA; /* 50% */
+}
+li.results-summary-container.passed > .results-summary-container-header:hover {
+	background-color: #B0E0CB; /* 30% */
+}
+
+/* Passed active */
+li.results-summary-container.passed > .results-summary-container-header.active {
+	background-color: #E6F5ED; /* 10% */
+}
+li.results-summary-container.passed > .results-summary-container-header.active:hover {
+	background-color: #F3FAF5; /* 5% */
+}
+
+
+/* Skipped/Expected Failure not active */
+li.results-summary-container.skipped > .results-summary-container-header, li.results-summary-container.xfailed > .results-summary-container-header {
+	background-color: #F9B593; /* 50% */
+}
+li.results-summary-container.skipped > .results-summary-container-header:hover, li.results-summary-container.xfailed > .results-summary-container-header:hover {
+	background-color: #FED2BC; /* 30% */
+}
+
+/* Skipped/Expected Failure active */
+li.results-summary-container.skipped > .results-summary-container-header.active, li.results-summary-container.xfailed > .results-summary-container-header.active {
+	background-color: #FFF0E8; /* 10% */
+}
+li.results-summary-container.skipped > .results-summary-container-header.active:hover, li.results-summary-container.xfailed > .results-summary-container-header.active:hover {
+	background-color: #FFF7F3; /* 5% */
+}
+
+
+/* Failed/Error/Unexpected Pass not active */
+li.results-summary-container.failed > .results-summary-container-header, li.results-summary-container.error > .results-summary-container-header, li.results-summary-container.xpassed > .results-summary-container-header {
+	background-color: #E06B70; /* 50% */
+}
+li.results-summary-container.failed > .results-summary-container-header:hover, li.results-summary-container.error > .results-summary-container-header:hover, li.results-summary-container.xpassed > .results-summary-container-header:hover {
+	background-color: #ED9696; /* 30% */
+}
+
+/* Failed/Error/Unexpected Pass active */
+li.results-summary-container.failed > .results-summary-container-header.active, li.results-summary-container.error > .results-summary-container-header.active, li.results-summary-container.xpassed > .results-summary-container-header.active {
+	background-color: #F8C0BE; /* 10% */
+}
+li.results-summary-container.failed > .results-summary-container-header.active:hover, li.results-summary-container.error > .results-summary-container-header.active:hover, li.results-summary-container.xpassed > .results-summary-container-header.active:hover {
+	background-color: #FEE9E8; /* 5% */
+}
+
+.extras {
+    display: flex;
+    flex-direction: column;
+	padding-left: 10px;
+}
+
+.extra-image-previews-wrapper {
+    display: flex;
+	align-content: flex-start;
+}
+
+.extra-image-preview, .extra-image-preview img {
+    max-height: 200px;
+	max-width: 200px;
+}
+
+.extra-item img {
+	max-height: 200px;
+	max-width: 200px;
+}
+
+.preview-button {
+	display: inline-block;
+}
+
+.extra-image-preview img:hover {
+	cursor: pointer;
+}
+
+.image-container-wrapper {
+    position: fixed;
+    height: 100%;
+    width: 100%;
+    top: 0;
+    left: 0;
+}
+
+.image-container-wrapper .backdrop {
+    background-color: black;
+    width: 100%;
+    height: 100%;
+    position: fixed;
+    opacity: .5;
+}
+
+.image-close-button {
+    position: fixed;
+    top: 5%;
+    right: 5%;
+	font-size: 3em;
+	cursor: pointer;
+}
+
+.image-close-button::after {
+    content: "\2715";
+}
+
+.image-container-wrapper img {
+    position: fixed;
+    margin: auto;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    max-height: 90%;
+    max-width: 90%;
+}
+
+
+
+.results li {
+	list-style-type: none;
+}
+
+.results ul {
+	margin: 0;
+	padding: 0;
+	padding-left: 10px;
+}
+
+.results-summary-container-header:not(.active) ~ div.child-containers {
+	height: 0;
+	overflow: hidden;
+}
+
+
+.summary-result-count::before {
+	margin-right: 5px;
+}
+
+.summary-result-count {
+	border-radius: 1.5em;
+	padding: .3em .6em;
+	text-align: center;
+	white-space: nowrap;
+	color: #fff;
+}
+
+
+/* Passed not shown */
+.count-toggle-button.passed {
+    background-color: #B0E0CB; /* 30% */
+}
+.count-toggle-button.passed:hover {
+    background-color: #E6F5ED; /* 10% */
+}
+.count-toggle-button.passed:hover .summary-result-count {
+    background-color: #B0E0CB; /* 30% */
+}
+.summary-result-count.passed {
+	background-color: #78CBAA; /* 50% */
+}
+
+/* Passed shown */
+.count-toggle-button.passed.shown {
+    background-color: #00945E; /* 100% */
+}
+.count-toggle-button.passed.shown:hover {
+    background-color: #00A06D; /* 90% */
+}
+.summary-result-count.passed.shown {
+	background-color: #2EB68B; /* 70% */
+}
+.count-toggle-button.passed.shown:hover .summary-result-count {
+    background-color: #78CBAA; /* 50% */
+}
+
+
+/* Skipped/Expected Failure not shown */
+.count-toggle-button.skipped, .count-toggle-button.xfailed {
+    background-color: #FED2BC; /* 30% */
+}
+.count-toggle-button.skipped:hover, .count-toggle-button.xfailed:hover {
+    background-color: #FFF0E8; /* 10% */
+}
+.count-toggle-button.skipped:hover .summary-result-count, .count-toggle-button.xfailed:hover .summary-result-count {
+    background-color: #FED2BC; /* 30% */
+}
+.summary-result-count.skipped, .summary-result-count.xfailed {
+	background-color: #F9B593; /* 50% */
+}
+
+/* Skipped/Expected Failure shown */
+.count-toggle-button.skipped.shown, .count-toggle-button.xfailed.shown {
+    background-color: #E16A2D; /* 100% */
+}
+.count-toggle-button.skipped.shown:hover, .count-toggle-button.xfailed.shown:hover {
+    background-color: #E77A43; /* 90% */
+}
+.summary-result-count.skipped.shown, .summary-result-count.xfailed.shown {
+	background-color: #F1986B; /* 70% */
+}
+.count-toggle-button.skipped.shown:hover .summary-result-count, .count-toggle-button.xfailed.shown:hover .summary-result-count {
+    background-color: #F9B593; /* 50% */
+}
+
+
+/* Failed/Error/Unexpected Pass not shown */
+.count-toggle-button.failed, .count-toggle-button.error, .count-toggle-button.xpassed {
+    background-color: #ED9696; /* 30% */
+}
+.count-toggle-button.failed:hover, .count-toggle-button.error:hover, .count-toggle-button.xpassed:hover {
+    background-color: #F8C0BE; /* 10% */
+}
+.count-toggle-button.failed:hover .summary-result-count, .count-toggle-button.error:hover .summary-result-count, .count-toggle-button.xpassed:hover .summary-result-count {
+    background-color: #ED9696; /* 30% */
+}
+.summary-result-count.failed, .summary-result-count.error, .summary-result-count.xpassed {
+	background-color: #E06B70; /* 50% */
+}
+
+/* Failed/Error/Unexpected Pass shown */
+.count-toggle-button.failed.shown, .count-toggle-button.error.shown, .count-toggle-button.xpassed.shown {
+    background-color: #B20734; /* 100% */
+}
+.count-toggle-button.failed.shown:hover, .count-toggle-button.error.shown:hover, .count-toggle-button.xpassed.shown:hover {
+    background-color: #C6093B; /* 90% */
+}
+.summary-result-count.failed.shown, .summary-result-count.error.shown, .summary-result-count.xpassed.shown {
+	background-color: #D8535E; /* 70% */
+}
+.count-toggle-button.failed.shown:hover .summary-result-count, .count-toggle-button.error.shown:hover .summary-result-count, .count-toggle-button.xpassed.shown:hover .summary-result-count {
+    background-color: #E06B70; /* 50% */
+}
+
+
+
+.summary-result-count.passed::before{
+	content: "\2713";
+}
+.summary-result-count.skipped::before {
+	content: "\21A9";
+}
+.summary-result-count.failed::before {
+	content: "\2716";
+}
+.summary-result-count.xfailed::before {
+	content: "\2717";
+}
+.summary-result-count.error::before {
+	content: "!";
+}
+.summary-result-count.xpassed::before {
+	content: "\203D";
+}
+
+
+.test-result.passed .outcome {
+	color: #00945E; /* 100% */
+}
+
+.test-result.skipped .outcome, .test-result.xfailed .outcome {
+	color: #E16A2D; /* 100% */
+}
+
+.test-result.failed .outcome, .test-result.error .outcome, .test-result.xpassed .outcome {
+	color: #B20734; /* 100% */
+}
+
+
+.test-result {
+	display: flex;
+	flex-direction: column;
+	color: #484847;
+	border-bottom: 1px solid #e5e5e5;
+	background-color: white;
+	padding: 7px 8px;
+	font-size: 14px;
+	overflow: auto;
+}
+.test-result .result-wrapper {
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	justify-content: space-between;
+}
+.test-result .result-wrapper .test-info-wrapper {
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+}
+.test-result .result-wrapper .test-info-wrapper .test-description {
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+}
+
+.test-result.passed {
+	background-color: #E6F5ED; /* 10% */
+}
+.test-result.skipped, .test-result.xfailed {
+	background-color: #FFF0E8; /* 10% */
+}
+.test-result.failed, .test-result.error, .test-result.xpassed {
+	background-color: #F8C0BE; /* 10% */
+}
+
+
+.test-result .test-description, .test-result .nodeid, .test-result .location, .test-result button {
+   margin-left: 10px;
+}
+
+.test-result .nodeid, .test-result .location {
+	border-bottom: 1px dotted black;
+}
+
+
+div.log {
+	margin-top: 5px;
+}
+
+.toggle-log::before {
+	content: "hide details";
+}
+
+.result-wrapper:not(.active) ~ div.log {
+	height: 0;
+	overflow: hidden;
+	border: none;
+	margin: 0;
+	padding: 0;
+}
+
+.result-wrapper:not(.active) .toggle-log::before {
+	content: "show details";
+}
+
 
 .log:only-child {
 	height: inherit
@@ -96,68 +573,13 @@ span.error, span.failed, span.xpassed, .error .col-result, .failed .col-result, 
 	color: black;
 	display: block;
 	font-family: "Courier New", Courier, monospace;
-	height: 230px;
+	height: inherit;
 	overflow-y: scroll;
 	padding: 5px;
 	white-space: pre-wrap
 }
-div.image {
-	border: 1px solid #e6e6e6;
-	float: right;
-	height: 240px;
-	margin-left: 5px;
-	overflow: hidden;
-	width: 320px
-}
-div.image img {
-	width: 320px
-}
-.collapsed {
+
+
+.test-result:not(.shown), .results-summary-container:not(.shown) {
 	display: none;
-}
-.expander::after {
-	content: " (show details)";
-	color: #BBB;
-	font-style: italic;
-	cursor: pointer;
-}
-.collapser::after {
-	content: " (hide details)";
-	color: #BBB;
-	font-style: italic;
-	cursor: pointer;
-}
-
-/*------------------
- * 3. Sorting items
- *------------------*/
-.sortable {
-	cursor: pointer;
-}
-
-.sort-icon {
-	font-size: 0px;
-	float: left;
-	margin-right: 5px;
-	margin-top: 5px;
-	/*triangle*/
-	width: 0;
-	height: 0;
-	border-left: 8px solid transparent;
-	border-right: 8px solid transparent;
-}
-
-.inactive .sort-icon {
-	/*finish triangle*/
-	border-top: 8px solid #E6E6E6;
-}
-
-.asc.active .sort-icon {
-	/*finish triangle*/
-	border-bottom: 8px solid #999;
-}
-
-.desc.active .sort-icon {
-	/*finish triangle*/
-	border-top: 8px solid #999;
 }

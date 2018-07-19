@@ -17,3 +17,23 @@ def pytest_html_results_table_row(report, cells):
 
 def pytest_html_results_table_html(report, data):
     """ Called after building results table additional HTML. """
+
+
+def pytest_html_results_page_html(results_tree, doc):
+    """ Called when all tests are done running. """
+
+
+def pytest_html_results_page_css(results_tree, css):
+    """ Called when all tests are done running. """
+
+
+def pytest_html_results_page_script(results_tree, script):
+    """ Called when all tests are done running. """
+
+
+def pytest_html_results_page_body(results_tree, body):
+    """ Called when all tests are done running. """
+
+
+def pytest_html_results_node_chain_extra(node_chain, extra):
+    """ Called after each test is run, but before generating any HTML. """
