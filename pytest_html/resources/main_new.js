@@ -47,7 +47,6 @@ function updateOutcomeCountVisibility(outcome=null) {
 }
 
 function updateTestVisibility() {
-    // var outcomes = outcome ? [outcome] : Object.keys(shown_states);
 
     var true_keys = [];
     var false_keys = [];
@@ -90,36 +89,8 @@ function updateTestVisibility() {
             el.classList.add("shown")
         }
     }
-
-    // for (let k of outcomes) {
-    //     for (let el of document.querySelectorAll(`.test-result.${k}`)) {
-    //         if (shown_states[k]) {
-    //             el.classList.add("shown")
-    //         } else {
-    //             el.classList.remove("shown")
-    //         }
-    //     }
-    // }
 }
 
-
-function showImageFromPreview() {
-    var imageContainer = document.createElement("div");
-    imageContainer.setAttribute("class", `image-container-wrapper`);
-    imageContainer.innerHTML = `
-        <div class="image-container">
-            <div class="backdrop"></div>
-            <div class="image-close-button"></div>
-            ${this.innerHTML}
-        </div>
-    `
-    imageContainer.querySelector(".image-close-button").addEventListener('click', closeImage, false);
-    document.body.appendChild(imageContainer);
-}
-
-function closeImage() {
-    document.body.removeChild(document.body.querySelector(".image-container-wrapper"));
-}
 
 
 function init () {
@@ -153,28 +124,6 @@ function toggleOpen(nodeLink) {
     child_containers.setAttribute("class", "child-containers");
 
     if (nodeLink.parentNode.data.extra.length) {
-
-        // var ul = document.createElement("ul");
-        // ul.setAttribute("class", "extra-content");
-        // for (var i = 0; i < nodeLink.parentNode.data.extra.length; i++) {
-        //     var extraLi = document.createElement("li");
-        //     extraLi.setAttribute("class", "extra-item");
-        //     parser = new DOMParser()
-        //     extraEl = parser.parseFromString(nodeLink.parentNode.data.extra[i], "text/xml").childNodes[0];
-        //     if (extraEl.tagName == "img") {
-        //         src = extraEl.getAttribute("src");
-        //         var extraEl = document.createElement("img");
-        //         extraEl.setAttribute("src", src)
-        //         previewButton = document.createElement("div");
-        //         previewButton.setAttribute("class", "preview-button");
-        //         previewButton.addEventListener('click', showImageFromPreview, false);
-        //         previewButton.appendChild(extraEl);
-        //         extraEl = previewButton;
-        //     }
-        //     extraLi.appendChild(extraEl);
-        //     ul.appendChild(extraLi);
-        // }
-        // child_containers.appendChild(ul);
         child_containers.appendChild(createExtraDiv(nodeLink.parentNode.data.extra))
     }
 
@@ -271,9 +220,9 @@ function createNodeHeader(nodeDetails, odd=false) {
 
 function createTestDesc(testDetails) {
 
-    var test_desc = document.createElement("li");
-    test_desc.setAttribute("class", `test-result ${testDetails.outcome.toLowerCase()}`);
-    test_desc.innerHTML = `
+    var testDesc = document.createElement("li");
+    testDesc.setAttribute("class", `test-result ${testDetails.outcome.toLowerCase()}`);
+    testDesc.innerHTML = `
         <div class="result-wrapper">
             <div class="test-info-wrapper">
                 <div class="outcome">${testDetails.outcome.toUpperCase()}</div>
@@ -289,8 +238,13 @@ function createTestDesc(testDetails) {
         </div>
         ${testDetails.log}
     `
-    test_desc.querySelector("button.toggle-log").addEventListener('click', toggleOpenClass, false);
-    return test_desc
+    if (testDetails.extra.length) {
+        extraDiv = createExtraDiv(testDetails.extra);
+        logDiv = testDesc.querySelector(".log")
+        testDesc.insertBefore(extraDiv, logDiv);
+    }
+    testDesc.querySelector("button.toggle-log").addEventListener('click', toggleOpenClass, false);
+    return testDesc
 }
 
 
@@ -308,17 +262,19 @@ function collapseAll() {
 
 
 function createExtraDiv(extras) {
-    imagesDiv = document.createElement("div");
+    var imagesDiv = document.createElement("div");
     imagesDiv.classList.add("extra-image-previews-wrapper");
     imagesDiv.images = [];
-    othersDiv = document.createElement("div");
+    var othersDiv = document.createElement("div");
     othersDiv.classList.add("extra-others");
 
+    var imageIndex = 0;
     for (let ex of extras) {
         if (ex.format == "image") {
-            imagesDiv.appendChild(createExtraImagePreview(ex));
+            imagesDiv.appendChild(createExtraImagePreview(ex, imageIndex));
             // add references for use by slideshow
             imagesDiv.images.push(ex);
+            imageIndex += 1;
         } else {
             switch(ex.format) {
                 case "text":
@@ -339,7 +295,7 @@ function createExtraDiv(extras) {
         }
     }
 
-    extrasDiv = document.createElement("div");
+    var extrasDiv = document.createElement("div");
     extrasDiv.classList.add("extras");
     if (imagesDiv.childNodes.length){
         extrasDiv.appendChild(imagesDiv);
@@ -351,48 +307,69 @@ function createExtraDiv(extras) {
     return extrasDiv
 }
 
-function createExtraImagePreview(imageDetails) {
-    imagePreviewDiv = document.createElement("div");
+function createExtraImagePreview(imageDetails, imageIndex) {
+    var imagePreviewDiv = document.createElement("div");
     imagePreviewDiv.classList.add("extra");
     imagePreviewDiv.classList.add("extra-image-preview");
-    img = document.createElement("img");
+    previewImageWrapper = document.createElement("div");
+    previewImageWrapper.classList.add("preview-image-wrapper");
+    var img = document.createElement("img");
     img.setAttribute("src", imageDetails.content);
-    img.addEventListener('click', showSlideshow, false);
-    imagePreviewDiv.appendChild(img);
+    img.setAttribute("alt", imageDetails.name);
+    img.setAttribute("title", imageDetails.name);
+    imagePreviewDiv.addEventListener('click', showSlideshow, false);
+    imagePreviewDiv.imageIndex = imageIndex;
+    previewImageWrapper.appendChild(img);
+    imagePreviewDiv.appendChild(previewImageWrapper);
     return imagePreviewDiv;
 }
 
 
 
 function createExtraText(textDetails) {
-    textDiv = document.createElement("div");
+    var textDiv = document.createElement("div");
     textDiv.classList.add("extra");
     textDiv.classList.add("extra-text");
-    contentDiv = document.createElement("div");
+    var contentDiv = document.createElement("div");
     contentDiv.classList.add("content");
     contentDiv.innerHTML = textDetails.content
     textDiv.appendChild(contentDiv);
     return textDiv;
 }
 
+function createExtraText(textDetails) {
+    var textDiv = document.createElement("div");
+    textDiv.classList.add("extra");
+    textDiv.classList.add("extra-text");
+    var contentDiv = document.createElement("div");
+    contentDiv.classList.add("content");
+    var pre = document.createElement("pre");
+    pre.innerHTML = textDetails.content
+    contentDiv.appendChild(pre);
+    textDiv.appendChild(contentDiv);
+    return textDiv;
+}
+
 function createExtraJson(jsonDetails) {
-    jsonDiv = document.createElement("div");
+    var jsonDiv = document.createElement("div");
     jsonDiv.classList.add("extra");
     jsonDiv.classList.add("extra-json");
-    contentDiv = document.createElement("div");
+    var contentDiv = document.createElement("div");
     contentDiv.classList.add("content");
-    contentDiv.innerHTML = JSON.stringify(jsonDetails.content, null, 4);
+    var pre = document.createElement("pre");
+    pre.innerHTML = JSON.stringify(jsonDetails.content, null, 4);
+    contentDiv.appendChild(pre);
     jsonDiv.appendChild(contentDiv);
     return jsonDiv;
 }
 
 function createExtraLink(linkDetails) {
-    linkDiv = document.createElement("div");
+    var linkDiv = document.createElement("div");
     linkDiv.classList.add("extra");
     linkDiv.classList.add("extra-link");
-    contentDiv = document.createElement("div");
+    var contentDiv = document.createElement("div");
     contentDiv.classList.add("content");
-    a = document.createElement("a");
+    var a = document.createElement("a");
     a.setAttribute("href", linkDetails.content);
     contentDiv.appendChild(a);
     linkDiv.appendChild(contentDiv);
@@ -400,10 +377,10 @@ function createExtraLink(linkDetails) {
 }
 
 function createExtraHtml(htmlDetails) {
-    htmlDiv = document.createElement("div");
+    var htmlDiv = document.createElement("div");
     htmlDiv.classList.add("extra");
     htmlDiv.classList.add("extra-html");
-    contentDiv = document.createElement("div");
+    var contentDiv = document.createElement("div");
     contentDiv.classList.add("content");
     contentDiv.innerHTML = htmlDetails.content;
     htmlDiv.appendChild(contentDiv);
@@ -411,6 +388,166 @@ function createExtraHtml(htmlDetails) {
 }
 
 
+
+
 function showSlideshow() {
-    console.log(this);
+    var startIndex = this.imageIndex;
+    var slideshowContainer = document.createElement("div");
+    slideshowContainer.setAttribute("class", "slideshow-wrapper");
+    var backdrop = document.createElement("div");
+    backdrop.setAttribute("class", "backdrop");
+    var slideshowCloseButton = document.createElement("div");
+    slideshowCloseButton.setAttribute("class", "slideshow-close-button");
+    slideshowCloseButton.addEventListener('click', closeSlideshow, false);
+
+    backdrop.addEventListener('click', closeSlideshow, false);
+    slideshowContainer.appendChild(backdrop);
+
+    var slideshowImageViewer = document.createElement("div");
+    slideshowImageViewer.setAttribute("class", "slideshow-image-viewer");
+
+
+    var thumbnailContainer = document.createElement("div");
+    thumbnailContainer.classList.add("thumbnail-container");
+
+    var images = this.parentNode.images;
+    for (var i = 0; i < images.length; i++) {
+        let imageDetails = images[i];
+
+        // create slide
+        let slideDiv = document.createElement("div");
+        slideDiv.classList.add("slideshow-image");
+
+        let num = document.createElement("div");
+        num.classList.add("slideshow-number");
+        num.innerText = `${i + 1} / ${images.length}`;
+
+        let slideImg = document.createElement("img");
+        slideImg.setAttribute("src", imageDetails.content);
+        slideImg.setAttribute("alt", imageDetails.name);
+        slideImg.setAttribute("title", imageDetails.name);
+
+        slideDiv.appendChild(num);
+        slideDiv.appendChild(slideImg);
+        slideshowImageViewer.appendChild(slideDiv);
+
+        // create thumbnail
+        let thumbImg = document.createElement("img");
+        thumbImg.setAttribute("src", imageDetails.content);
+        thumbImg.setAttribute("onclick", `switchToSlide(${i})`);
+        thumbImg.setAttribute("alt", imageDetails.name);
+        thumbImg.setAttribute("title", imageDetails.name);
+        thumbImg.classList.add("thumbnail-image");
+
+        thumbnailContainer.appendChild(thumbImg);
+    }
+
+    let slideshowImageDetails = document.createElement("div");
+    slideshowImageDetails.classList.add("slideshow-image-details");
+
+    var prevButton = document.createElement("div");
+    prevButton.classList.add("prev");
+    prevButton.addEventListener("click", moveToPrevSlide, false);
+    var nextButton = document.createElement("div");
+    nextButton.classList.add("next");
+    nextButton.addEventListener("click", moveToNextSlide, false);
+
+    slideshowImageViewer.appendChild(prevButton);
+    slideshowImageViewer.appendChild(nextButton);
+
+    var slideshowImageViewerContainer = document.createElement("div");
+    slideshowImageViewerContainer.classList.add("slideshow-image-viewer-container");
+    slideshowImageDetails.appendChild(slideshowImageViewer);
+    slideshowImageViewerContainer.appendChild(slideshowImageDetails);
+    slideshowImageViewerContainer.appendChild(slideshowCloseButton);
+
+    var captionContainer = document.createElement("div");
+    captionContainer.classList.add("caption-container");
+
+    var captionP = document.createElement("p");
+    captionP.setAttribute("id", "caption");
+
+    captionContainer.appendChild(captionP);
+
+    slideshowImageViewerContainer.appendChild(captionContainer);
+    slideshowImageViewerContainer.appendChild(thumbnailContainer);
+    slideshowContainer.appendChild(slideshowImageViewerContainer);
+    slideshowContainer.currentSlide = startIndex;
+
+    document.body.appendChild(slideshowContainer);
+
+    switchToSlide(startIndex);
+}
+
+
+function closeSlideshow() {
+    document.body.removeChild(document.body.querySelector(".slideshow-wrapper"));
+}
+
+
+// Next/previous controls
+function moveToNextSlide() {
+    plusSlides(1);
+}
+function moveToPrevSlide() {
+    plusSlides(-1);
+}
+
+document.onkeydown = checkKey;
+
+function checkKey(e) {
+
+    e = e || window.event;
+
+    if (document.body.querySelector(".slideshow-wrapper")) {
+        if (e.keyCode == '37') {
+           // left arrow
+           moveToPrevSlide();
+        }else if (e.keyCode == '39') {
+           // right arrow
+           moveToNextSlide();
+       }else if (e.keyCode == '27') {
+           // ESC
+           closeSlideshow();
+        }
+    }
+
+}
+
+
+function plusSlides(n) {
+    var slideshowContainer = document.querySelector(".slideshow-wrapper");
+    var slideIndex = slideshowContainer.currentSlide;
+    switchToSlide(slideIndex += n);
+}
+
+// Thumbnail image controls
+function switchToSlide(n) {
+    var slideshowContainer = document.querySelector(".slideshow-wrapper");
+    var slides = document.getElementsByClassName("slideshow-image");
+    var thumbnails = document.getElementsByClassName("thumbnail-image");
+    var slideIndex;
+    if (n >= slides.length) {
+        slideIndex = 0;
+    } else if (n < 0) {
+        slideIndex = slides.length - 1;
+    } else {
+        slideIndex = n;
+    }
+
+    slideshowContainer.currentSlide = slideIndex
+
+    for (i = 0; i < slides.length; i++) {
+        if (i != slideshowContainer.currentSlide){
+            slides[i].classList.remove("active");
+            thumbnails[i].classList.remove("active");
+        } else {
+            slides[i].classList.add("active");
+            thumbnails[i].classList.add("active");
+            thumbnails[i].scrollIntoView()
+        }
+    }
+    var captionText = document.getElementById("caption");
+    captionText.innerHTML = thumbnails[slideIndex].alt;
+
 }
