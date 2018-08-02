@@ -487,10 +487,10 @@ function closeSlideshow() {
 
 // Next/previous controls
 function moveToNextSlide() {
-    plusSlides(1);
+    shiftSlides(1);
 }
 function moveToPrevSlide() {
-    plusSlides(-1);
+    shiftSlides(-1);
 }
 
 document.onkeydown = checkKey;
@@ -515,7 +515,7 @@ function checkKey(e) {
 }
 
 
-function plusSlides(n) {
+function shiftSlides(n) {
     var slideshowContainer = document.querySelector(".slideshow-wrapper");
     var slideIndex = slideshowContainer.currentSlide;
     switchToSlide(slideIndex += n);

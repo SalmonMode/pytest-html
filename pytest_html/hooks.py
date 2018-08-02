@@ -35,5 +35,5 @@ def pytest_html_results_page_body(results_tree, body):
     """ Called when all tests are done running. """
 
 
-def pytest_html_results_node_chain_extra(node_chain, extra):
+def pytest_html_add_node_chain_extra(item, outcome, extra, node_chain):
     """ Called after each test is run, but before generating any HTML. """
