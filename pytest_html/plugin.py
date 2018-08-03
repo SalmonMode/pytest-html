@@ -489,9 +489,11 @@ class HTMLReport(object):
 
         doc = html.html()
 
-        doc.extend(html_head)
         doc.extend(
-            html_body,
+            [
+                html_head,
+                html_body,
+            ],
         )
         self.config.hook.pytest_html_results_page_html(
             results_tree=results_tree_dict, doc=doc)
@@ -528,7 +530,7 @@ class HTMLReport(object):
         return environment
 
     def _generate_body(self, results_tree):
-        body = html.body(html.body(onload="init()"))
+        body = html.body(onload="init()")
 
         generated_time = datetime.datetime.strptime(results_tree["suite_info"]["generated"].split(".")[0], "%Y-%I-%dT%X")
         summary_div = [html.div(
