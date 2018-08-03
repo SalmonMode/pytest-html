@@ -823,7 +823,12 @@ def pytest_runtest_makereport(item, call):
     outcome = None
 
     wasxfail = hasattr(report, "wasxfail")
-    if getattr(report, "when", None) == "call":
+    if report.skipped:
+        if wasxfail:
+            outcome = "XFailed"
+        else:
+            outcome = "Skipped"
+    elif getattr(report, "when", None) == "call":
         if report.passed:
             if wasxfail:
                 outcome = "XPassed"
@@ -834,11 +839,6 @@ def pytest_runtest_makereport(item, call):
                 outcome = "XPassed"
             else:
                 outcome = "Failed"
-        elif report.skipped:
-            if wasxfail:
-                outcome = "XFailed"
-            else:
-                outcome = "Skipped"
     elif report.failed:
         outcome = "Error"
 
