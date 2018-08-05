@@ -783,12 +783,15 @@ def get_node_chain(item, outcome, duration):
 
     node_chain = []
 
+    prev_node = None
+
     if hasattr(item.config, 'slaveinput'):
         node = SerializableNode(
             name=item.config.slaveinput['slaveid'],
             is_xdist_slave=True,
         )
         node_chain.append(node)
+        prev_node = node
 
     for n in simple_node_chain:
         is_test = n is simple_node_chain[-1]
@@ -796,6 +799,7 @@ def get_node_chain(item, outcome, duration):
             "name": n["name"],
             "is_test": is_test,
             "params": n["params"],
+            "parent": prev_node,
         }
         if is_test:
             kwargs["location"] = item.location
@@ -805,6 +809,7 @@ def get_node_chain(item, outcome, duration):
 
         node = SerializableNode(**kwargs)
         node_chain.append(node)
+        prev_node = node
 
     return node_chain
 
@@ -857,7 +862,6 @@ def pytest_runtest_makereport(item, call):
         extra=extra,
         node_chain=node_chain,
     )
-
     report.user_properties.append((
         "pytest_html_report_node_chain",
         list(node.to_serializable_node_chain_link() for node in node_chain),
