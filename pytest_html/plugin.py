@@ -170,6 +170,25 @@ class SerializableNode(object):
     lookups in the tree and allows for simpler comparisons. Additionally, adding
     child nodes or tests to a Node is made trivial, as the results_tree doesn't
     have to be traversed to find the Node you want to append a Node/test to.
+
+    In order to support ``pytest-xdist``, this information can't just be passed
+    up to the master from the slave that is actually running the test. Instead,
+    the slave can only pass serialized information to the master, and, ideally,
+    only using established attributes of a normal test report. This class allows
+    the node chain information to be serialized in such a way that the slave can
+    pass it up to the master, without losing any information needed by the
+    master to rebuild the node chain as it generates the HTML report.
+
+    Due to similar functionality being required, this class is used to represent
+    the nodes both before and after the slave sends the serialized information
+    to the master. The ``before_serialization`` attribute is used to determine
+    which side of that event the node is currently being used on. This is
+    necessary, as without it, if ``pytest-xdist`` were not being used, there
+    would only be one Python environment, and when trying to parse the
+    serialized versions of the nodes, they would conflict with the nodes created
+    before the serialization event, and some information would be lost (e.g.
+    test logs). When a node is serialized, this attribute isn't included, so
+    when the nodes are reconstructed, it will automatically be ``False``.
     """
 
     _instances = []
@@ -203,6 +222,7 @@ class SerializableNode(object):
             ("is_xdist_slave", False),
             ("children", []),
             ("test_results", []),
+            ("before_serialization", False),
         )
 
         for attr, value in defaults:
@@ -237,6 +257,7 @@ class SerializableNode(object):
             "params",
             "nodeid",
             "location",
+            "before_serialization",
         )
         return all(getattr(self, a) == getattr(other, a) for a in eq_attrs)
 
@@ -789,6 +810,7 @@ def get_node_chain(item, outcome, duration):
         node = SerializableNode(
             name=item.config.slaveinput['slaveid'],
             is_xdist_slave=True,
+            before_serialization=True,
         )
         node_chain.append(node)
         prev_node = node
@@ -800,6 +822,7 @@ def get_node_chain(item, outcome, duration):
             "is_test": is_test,
             "params": n["params"],
             "parent": prev_node,
+            "before_serialization": True,
         }
         if is_test:
             kwargs["location"] = item.location
