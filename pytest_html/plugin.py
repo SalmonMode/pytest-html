@@ -276,6 +276,15 @@ class SerializableNode(object):
             "log": self.log,
         }
         if self.is_test:
+            if self.nodeid is not None:
+                json_repr["nodeid"] = escape(self.nodeid)
+            else:
+                json_repr["nodeid"] = "Unknown"
+            if self.location is not None:
+                json_repr["location"] = self.location
+            else:
+                json_repr["location"] = "Unknown"
+            json_repr["location"] = self.location
             json_repr["outcome"] = self.outcome
         else:
             json_repr["summary"] = self.summary
