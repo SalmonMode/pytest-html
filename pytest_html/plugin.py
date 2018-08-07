@@ -711,6 +711,7 @@ def get_parameterized_fixtures_with_effective_autouse(item):
             "description": param_description,
             "param_index": fix.param_index,
             "scopenum": fix.scopenum,
+            "scope": fix.scope,
             "autouse": autouse,
             "baseid": fix.baseid,
             "fixturedef": fix,
@@ -739,10 +740,10 @@ def get_parameterized_fixtures_with_effective_autouse(item):
 
 def get_parameterized_simple_node_chain(item, simple_node_chain,
                                         param_fixtures):
-    SESSION_SCOPE = 0
-    MODULE_SCOPE = 1
-    CLASS_SCOPE = 2
-    FUNCTION_SCOPE = 3
+    SESSION_SCOPE = "session"
+    MODULE_SCOPE = "module"
+    CLASS_SCOPE = "class"
+    FUNCTION_SCOPE = "function"
 
     # determine where a parameterized fixture effectively caused a branch in the
     # flow of tests, and associate it with that node.
@@ -756,19 +757,20 @@ def get_parameterized_simple_node_chain(item, simple_node_chain,
             "baseid": pf["baseid"],
         }
         chain = get_namespace_chain(pf["baseid"])
-        if pf["scopenum"] == FUNCTION_SCOPE or pf["autouse"] is False:
+
+        if pf["scope"] == FUNCTION_SCOPE or pf["autouse"] is False:
             # if a parameterized fixture isn't set for autouse, or the
             # parameterized fixture is of function scope, then no matter
             # where the fixture is defined, it will only branch on the
             # function.
             simple_node_chain[-1]["params"].append(simplified_fixture)
-        elif pf["scopenum"] == SESSION_SCOPE:
+        elif pf["scope"] == SESSION_SCOPE:
             # parameterized session scope fixtures will branch on whatever
             # scope they are defined in, e.g. one defined in a class will
             # branch on that class and won't impact anything else.
             index = len(chain) - 1
             simple_node_chain[index]["params"].append(simplified_fixture)
-        elif pf["scopenum"] == MODULE_SCOPE:
+        elif pf["scope"] == MODULE_SCOPE:
             # parameterized module scope fixtures will mostly branch on
             # whatever scope they are defined in, e.g. one defined in a
             # class will branch on that class and won't impact anything
@@ -787,7 +789,7 @@ def get_parameterized_simple_node_chain(item, simple_node_chain,
                 # defined in.
                 index = index = len(chain) - 1
             simple_node_chain[index]["params"].append(simplified_fixture)
-        elif pf["scopenum"] == CLASS_SCOPE:
+        elif pf["scope"] == CLASS_SCOPE:
             # parameterized class scope fixtures will branch on classes
             # whatever scope they are defined in, e.g. one defined in a
             # class will branch on that class and won't impact anything
