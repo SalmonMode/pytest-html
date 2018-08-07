@@ -61,6 +61,10 @@ def pytest_addoption(parser):
                     'https://developer.mozilla.org/docs/Web/Security/CSP)')
     group.addoption('--css', action='append', metavar='path',
                     help='append given css file content to report style file.')
+    group.addoption('--no-group-on-worker', action='store_true',
+                    help='do not group tests by their xdist worker, like they '
+                    'would be grouped for things like packages, modules, and '
+                    'classes.')
 
 
 def pytest_configure(config):
@@ -826,14 +830,15 @@ def get_node_chain(item, outcome, duration):
 
     prev_node = None
 
-    if hasattr(item.config, 'slaveinput'):
-        node = SerializableNode(
-            name=item.config.slaveinput['slaveid'],
-            is_xdist_slave=True,
-            before_serialization=True,
-        )
-        node_chain.append(node)
-        prev_node = node
+    if not item.config.getoption('no_group_on_worker'):
+        if hasattr(item.config, 'slaveinput'):
+            node = SerializableNode(
+                name=item.config.slaveinput['slaveid'],
+                is_xdist_slave=True,
+                before_serialization=True,
+            )
+            node_chain.append(node)
+            prev_node = node
 
     for n in simple_node_chain:
         is_test = n is simple_node_chain[-1]
