@@ -374,6 +374,8 @@ class HTMLReport(object):
     def _appendrow(self, outcome, report):
         outcome = outcome.lower()
         node_chain = None
+        if not hasattr(report, "user_properties"):
+            return
         for prop in report.user_properties:
             if prop[0] == "pytest_html_report_node_chain":
                 node_chain = prop[1]
