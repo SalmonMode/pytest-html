@@ -18,6 +18,7 @@ import hashlib
 import warnings
 
 import pytest
+from execnet.gateway_base import _Serializer
 
 try:
     from ansi2html import Ansi2HTMLConverter, style
@@ -117,7 +118,12 @@ class SerializableParamFixInfo(object):
             return
 
         self.name = name
+
+        methodname = 'save_' + type(description).__name__
+        if not hasattr(_Serializer, methodname):
+            description = str(description)
         self.description = description
+
         self.param_index = param_index
         self.baseid = baseid
         self._alread_initialized = True
@@ -148,7 +154,7 @@ class SerializableParamFixInfo(object):
     def serialize(self):
         return {
             "name": self.name,
-            "description": self.description,
+            "description": repr(self.description),
             "param_index": self.param_index,
             "baseid": self.baseid,
         }
@@ -678,7 +684,8 @@ def get_parameterized_fixtures_with_effective_autouse(item):
     # determine all the dependancies each fixture has of other fixtures
     dependancies = {}
     for fname, v in item._fixtureinfo.name2fixturedefs.items():
-        fix = v[0]
+        fix = v[-1]
+
         fix.param_index = item.callspec.indices.get(fix.argname, 0)
         dependancies[fname] = get_fixture_dependancies(
             fname,
@@ -688,7 +695,7 @@ def get_parameterized_fixtures_with_effective_autouse(item):
     # find the fixtures that are parameterized
     param_fixtures = {}
     for k, v in item._fixtureinfo.name2fixturedefs.items():
-        fix = v[0]
+        fix = v[-1]
         if fix.params:
             if hasattr(fix, "cached_result"):
                 param_description = fix.params[fix.param_index]
