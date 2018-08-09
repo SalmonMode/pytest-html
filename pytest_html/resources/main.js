@@ -12,6 +12,16 @@ shown_states = {
     "xpassed": true,
 }
 
+collapsed = [
+    "passed",
+]
+
+
+function get_query_parameter(name) {
+    var match = RegExp('[?&]' + name + '=([^&]*)').exec(window.location.search);
+    return match && decodeURIComponent(match[1].replace(/\+/g, ' '));
+}
+
 
 function toggleShownState() {
     var outcome = null
@@ -89,6 +99,8 @@ function updateTestVisibility() {
 
 
 function init () {
+    collapsed = (get_query_parameter('collapsed') || "passed").toLowerCase().split(",");
+
     prepareResultsHeaders();
     updateOutcomeCountVisibility();
     updateTestVisibility();
@@ -239,6 +251,11 @@ function createTestDesc(testDetails) {
         testDesc.insertBefore(extraDiv, logDiv);
     }
     testDesc.querySelector("button.toggle-log").addEventListener('click', toggleOpenClass, false);
+
+    if (!collapsed.includes(testDetails.outcome.toLowerCase())) {
+        testDesc.querySelector(".result-wrapper").classList.add("active")
+    }
+
     return testDesc
 }
 

@@ -226,7 +226,7 @@ created hyper link:
 Display options
 ---------------
 
-By default, all rows in the **Results** table will be expanded except those that have :code:`Passed`.
+By default, all tests will have their logs shown except those that have :code:`Passed`.
 
 This behavior can be customized with a query parameter: :code:`?collapsed=Passed,XFailed,Skipped`.
 
