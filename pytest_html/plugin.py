@@ -692,6 +692,7 @@ class HTMLReport(object):
             ),
             class_="project-test-results-summary",
         )]
+        self.config.hook.pytest_html_results_summary(summary_div=summary_div)
         results_div = [html.div(
             html.h2("Results"),
             html.div(
