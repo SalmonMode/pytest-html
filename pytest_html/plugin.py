@@ -509,7 +509,7 @@ class HTMLReport(object):
             html_css = html.style(raw(self.style_css))
 
         self.js_script = pkg_resources.resource_string(
-            __name__, os.path.join('resources', 'main_new.js'))
+            __name__, os.path.join('resources', 'main.js'))
         if PY3:
             self.js_script = self.js_script.decode('utf-8')
 
