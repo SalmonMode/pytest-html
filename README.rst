@@ -73,6 +73,27 @@ as expected.
 
 The plugin will issue a warning when adding files or links to the standalone report.
 
+Test result output
+~~~~~~~~~~~~~~~~~~
+
+The output of the tests is grouped based on the effective branching logic of the
+tests and their fixtures, which is determined by the file structure of your
+project and how parameterized fixtures are defined/used. If using the
+`pytest-xdist` plugin to run tests in parallel, the workers are, by default,
+factored into this grouping logic, as this can have meaningful impact on how the
+tests operate. This can be turned off by using the :code:`--no-group-on-worker`
+option.
+
+When using parameterized fixtures with `autouse`, the plugin will determine what
+level is effectively being branched off for each permutation, based on the scope
+the fixture was defined in, and the scope is was meant to apply for. The level
+it's branching on will show as multiple copies of the same group, but each with
+a description of their respective instance of the parameterized fixture.
+
+By default, everything is collapsed. As groups are expanded, their contents are
+generated at that moment. When they are collapsed, their contents are removed
+from the DOM.
+
 Enhancing reports
 -----------------
 
@@ -86,6 +107,18 @@ be used to change the appearance of the report.
 .. code-block:: bash
 
   $ pytest --html=report.html --css=highcontrast.css --css=accessible.css
+
+Structure & Functionality
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Custom JavaScript additions can be passed on the command line using the
+:code:`--js` option. These will be applied in the order specified, and can
+be used to change the scripts of the report that are used to generate the
+structure of the test output, and define the behavior of interactive elements.
+
+.. code-block:: bash
+
+  $ pytest --html=report.html --js=slideshow.js --css=structure.js
 
 Environment
 ~~~~~~~~~~~
@@ -113,14 +146,22 @@ You can edit the *Summary* section by using the :code:`pytest_html_results_summa
    from py.xml import html
 
    @pytest.mark.optionalhook
-   def pytest_html_results_summary(prefix, summary, postfix):
-       prefix.extend([html.p("foo: bar")])
+   def pytest_html_results_summary(summary):
+       summary.extend([html.p("foo: bar")])
 
 Extra content
 ~~~~~~~~~~~~~
 
-You can add details to the HTML reports by creating an 'extra' list on the
-report object. Here are the types of extra content that can be added:
+You can add details to the HTML reports by appending to the 'extra' list on one
+of the nodes in the :code:`pytest_html_add_node_chain_extra` hook. The nodes
+represent the different levels of branching logic of your tests, and extra
+content can be added for each of them. The extra content added to the nodes is
+also persistent from test to test, so you can see what was added as the tests
+run. The :code:`item` argument is also provided immediately following each
+test's execution, and can provide a gateway to accessing resources used by the
+test.
+
+Here are the types of extra content that can be added:
 
 ==========  ============================================
 Type        Example
@@ -152,26 +193,28 @@ SVG           ``extra.svg(image)``
 ============  ====================
 
 The following example adds the various types of extras using a
-:code:`pytest_runtest_makereport` hook, which can be implemented in a plugin or
-conftest.py file:
+:code:`pytest_html_add_node_chain_extra` hook, which can be implemented in a
+plugin or conftest.py file:
 
 .. code-block:: python
 
   import pytest
-  @pytest.mark.hookwrapper
-  def pytest_runtest_makereport(item, call):
+
+  def pytest_html_add_node_chain_extra(item, outcome, extra, node_chain):
       pytest_html = item.config.pluginmanager.getplugin('html')
-      outcome = yield
-      report = outcome.get_result()
-      extra = getattr(report, 'extra', [])
-      if report.when == 'call':
-          # always add url to report
-          extra.append(pytest_html.extras.url('http://www.example.com/'))
-          xfail = hasattr(report, 'wasxfail')
-          if (report.skipped and xfail) or (report.failed and not xfail):
-              # only add additional html on failure
-              extra.append(pytest_html.extras.html('<div>Additional HTML</div>'))
-          report.extra = extra
+      module_node = None
+      for node in node_chain:
+          if node.name.endswith(".py"):
+              module_node = node
+              break
+      if module_node.extra:
+          # already has extra
+          return
+      # always add url to report
+      module_node.extra.append(pytest_html.extras.url('http://www.example.com/'))
+      if outcome == 'Failed':
+          # only add additional html on failure
+          module_node.extra.append(pytest_html.extras.html('<div>Additional HTML</div>'))
 
 You can also specify the :code:`name` argument for all types other than :code:`html` which will change the title of the
 created hyper link:
@@ -179,66 +222,6 @@ created hyper link:
 .. code-block:: python
 
     extra.append(pytest_html.extras.text('some string', name='Different title'))
-
-
-Modifying the results table
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-You can modify the columns by implementing custom hooks for the header and
-rows. The following example :code:`conftest.py` adds a description column with
-the test function docstring, adds a sortable time column, and removes the links
-column:
-
-.. code-block:: python
-
-  from datetime import datetime
-  from py.xml import html
-  import pytest
-
-  @pytest.mark.optionalhook
-  def pytest_html_results_table_header(cells):
-      cells.insert(2, html.th('Description'))
-      cells.insert(1, html.th('Time', class_='sortable time', col='time'))
-      cells.pop()
-
-  @pytest.mark.optionalhook
-  def pytest_html_results_table_row(report, cells):
-      cells.insert(2, html.td(report.description))
-      cells.insert(1, html.td(datetime.utcnow(), class_='col-time'))
-      cells.pop()
-
-  @pytest.mark.hookwrapper
-  def pytest_runtest_makereport(item, call):
-      outcome = yield
-      report = outcome.get_result()
-      report.description = str(item.function.__doc__)
-
-You can also remove results by implementing the
-:code:`pytest_html_results_table_row` hook and removing all cells. The
-following example removes all passed results from the report:
-
-.. code-block:: python
-
-  import pytest
-
-  @pytest.mark.optionalhook
-  def pytest_html_results_table_row(report, cells):
-      if report.passed:
-        del cells[:]
-
-The log output and additional HTML can be modified by implementing the
-:code:`pytest_html_results_html` hook. The following example replaces all
-additional HTML and log output with a notice that the log is empty:
-
-.. code-block:: python
-
-  import pytest
-
-  @pytest.mark.optionalhook
-  def pytest_html_results_table_html(report, data):
-      if report.passed:
-          del data[:]
-          data.append(html.div('No log output captured.', class_='empty log'))
 
 Display options
 ---------------
