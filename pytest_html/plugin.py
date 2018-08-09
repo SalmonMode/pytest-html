@@ -373,15 +373,16 @@ class HTMLReport(object):
         self.config = config
 
     def results_tree_to_dict(self, session):
+        rslts_tree = self.__class__.results_tree
         return {
             "name": session.name,
-            "summary": self.__class__.results_tree["summary"],
-            "results": [n.to_dict() for n in self.__class__.results_tree["results"]],
+            "summary": rslts_tree["summary"],
+            "results": [n.to_dict() for n in rslts_tree["results"]],
             "suite_info": {
-                "generated": self.__class__.results_tree["suite_info"]["generated"].isoformat(),
-                "run_time": self.__class__.results_tree["suite_info"]["run_time"],
-                "numtests": self.__class__.results_tree["suite_info"]["numtests"],
-                "environment": self.__class__.results_tree["suite_info"]["environment"],
+                "generated": rslts_tree["suite_info"]["generated"].isoformat(),
+                "run_time": rslts_tree["suite_info"]["run_time"],
+                "numtests": rslts_tree["suite_info"]["numtests"],
+                "environment": rslts_tree["suite_info"]["environment"],
             },
         }
 
@@ -468,8 +469,8 @@ class HTMLReport(object):
         numtests = self.passed + self.failed + self.xpassed + self.xfailed
         generated = datetime.datetime.now()
         environment = []
-        if hasattr(session.config, '_metadata') and session.config._metadata is not None:
-            metadata = session.config._metadata
+        metadata = getattr(session.config, "_metadata", None)
+        if metadata is not None:
             environment = metadata
 
         self.__class__.results_tree["suite_info"] = {
@@ -522,10 +523,9 @@ class HTMLReport(object):
                 self.js_script += f.read()
 
         results_tree_dict = self.results_tree_to_dict(session)
-
         results_tree_json = json.dumps(results_tree_dict, indent=2)
-
-        self.js_script += "\n\nprojectName = '{}'".format(results_tree_dict["name"])
+        project_name = results_tree_dict["name"]
+        self.js_script += "\n\nprojectName = '{}'".format(project_name)
         self.js_script += "\n\nresultsTree = {}".format(results_tree_json)
 
         js_ref = '{0}/{1}'.format('assets', 'script.js')
@@ -559,28 +559,107 @@ class HTMLReport(object):
             unicode_doc = unicode_doc.decode('utf-8')
         return unicode_doc
 
-    def _generate_environment(self, config):
-        if not hasattr(config, '_metadata') or config._metadata is None:
-            return []
-
-        metadata = config._metadata
-        environment = [html.h2('Environment')]
+    def _generate_environment(self, environment_details):
         rows = []
 
-        keys = [k for k in metadata.keys() if metadata[k]]
-        if not isinstance(metadata, OrderedDict):
+        keys = [k for k in environment_details.keys() if environment_details[k]]
+        if not isinstance(environment_details, OrderedDict):
             keys.sort()
 
         for key in keys:
-            value = metadata[key]
-            if isinstance(value, basestring) and value.startswith('http'):
-                value = html.a(value, href=value, target='_blank')
+            value = environment_details[key]
+            if isinstance(value, basestring) and value.startswith("http"):
+                value = html.a(value, href=value, target="_blank")
             elif isinstance(value, (list, tuple, set)):
-                value = ', '.join((str(i) for i in value))
+                value = ", ".join((str(i) for i in value))
             rows.append(html.tr(html.td(key), html.td(value)))
 
-        environment.append(html.table(rows, id='environment'))
+        environment = html.div(
+            html.h2("Environment"),
+            html.div(
+                html.table(rows, id="environment"),
+                class_="environment-info",
+            ),
+            class_="environment-details",
+        )
         return environment
+
+    def _generate_summary_count(self, numtests, summary, run_time):
+        summary_count = html.div(
+            html.h2("Summary"),
+            html.div(
+                html.p(
+                    "{0} tests ran in {1:.2f} seconds.".format(
+                        numtests,
+                        run_time,
+                    ),
+                ),
+                html.p(
+                    "Toggle the buttons to filter the results.",
+                    class_="filter",
+                ),
+                html.div(
+                    html.button(
+                        html.div("Passes", class_="button-text"),
+                        html.div(
+                            summary["passed"],
+                            class_="summary-result-count passed",
+                        ),
+                        class_="count-toggle-button passed",
+                        title="Passes",
+                    ),
+                    html.button(
+                        html.div("Skips", class_="button-text"),
+                        html.div(
+                            summary["skipped"],
+                            class_="summary-result-count skipped",
+                        ),
+                        class_="count-toggle-button skipped",
+                        title="Skips",
+                    ),
+                    html.button(
+                        html.div("Failures", class_="button-text"),
+                        html.div(
+                            summary["failed"],
+                            class_="summary-result-count failed",
+                        ),
+                        class_="count-toggle-button failed",
+                        title="Failures",
+                    ),
+                    html.button(
+                        html.div("Errors", class_="button-text"),
+                        html.div(
+                            summary["error"],
+                            class_="summary-result-count error",
+                        ),
+                        class_="count-toggle-button error",
+                        title="Errors",
+                    ),
+                    html.button(
+                        html.div("Expected failures", class_="button-text"),
+                        html.div(
+                            summary["xfailed"],
+                            class_="summary-result-count xfailed",
+                        ),
+                        class_="count-toggle-button xfailed",
+                        title="Expected failures",
+                    ),
+                    html.button(
+                        html.div("Unexpected passes", class_="button-text"),
+                        html.div(
+                            summary["xpassed"],
+                            class_="summary-result-count xpassed",
+                        ),
+                        class_="count-toggle-button xpassed",
+                        title="Unexpected passes",
+                    ),
+                    class_="results-summary-numbers",
+                ),
+                class_="summary-info",
+            ),
+            class_="summary-details",
+        )
+        return summary_count
 
     def _generate_body(self, results_tree):
         body = html.body(onload="init()")
@@ -603,8 +682,10 @@ class HTMLReport(object):
                 ),
                 class_="generated-info",
             ),
-            _generate_environment(results_tree["suite_info"]["environment"]),
-            _generate_summary_count(
+            self._generate_environment(
+                results_tree["suite_info"]["environment"],
+            ),
+            self._generate_summary_count(
                 results_tree["suite_info"]["numtests"],
                 results_tree["summary"],
                 results_tree["suite_info"]["run_time"],
@@ -966,89 +1047,3 @@ def get_log_from_report(report):
                                          errors='xmlcharrefreplace')
         unicode_log = unicode_log.decode('utf-8')
     return unicode_log
-
-
-def _generate_environment(environment_details):
-    rows = []
-
-    keys = [k for k in environment_details.keys() if environment_details[k]]
-    if not isinstance(environment_details, OrderedDict):
-        keys.sort()
-
-    for key in keys:
-        value = environment_details[key]
-        if isinstance(value, basestring) and value.startswith("http"):
-            value = html.a(value, href=value, target="_blank")
-        elif isinstance(value, (list, tuple, set)):
-            value = ", ".join((str(i) for i in value))
-        rows.append(html.tr(html.td(key), html.td(value)))
-
-    environment = html.div(
-        html.h2("Environment"),
-        html.div(
-            html.table(rows, id="environment"),
-            class_="environment-info",
-        ),
-        class_="environment-details",
-    )
-    return environment
-
-
-def _generate_summary_count(numtests, summary, run_time):
-    summary_count = html.div(
-        html.h2("Summary"),
-        html.div(
-            html.p(
-                "{0} tests ran in {1:.2f} seconds.".format(
-                    numtests,
-                    run_time,
-                ),
-            ),
-            html.p(
-                "Toggle the buttons to filter the results.",
-                class_="filter",
-            ),
-            html.div(
-                html.button(
-                    html.div("Passes", class_="button-text"),
-                    html.div(summary["passed"], class_="summary-result-count passed"),
-                    class_="count-toggle-button passed",
-                    title="Passes",
-                ),
-                html.button(
-                    html.div("Skips", class_="button-text"),
-                    html.div(summary["skipped"], class_="summary-result-count skipped"),
-                    class_="count-toggle-button skipped",
-                    title="Skips",
-                ),
-                html.button(
-                    html.div("Failures", class_="button-text"),
-                    html.div(summary["failed"], class_="summary-result-count failed"),
-                    class_="count-toggle-button failed",
-                    title="Failures",
-                ),
-                html.button(
-                    html.div("Errors", class_="button-text"),
-                    html.div(summary["error"], class_="summary-result-count error"),
-                    class_="count-toggle-button error",
-                    title="Errors",
-                ),
-                html.button(
-                    html.div("Expected failures", class_="button-text"),
-                    html.div(summary["xfailed"], class_="summary-result-count xfailed"),
-                    class_="count-toggle-button xfailed",
-                    title="Expected failures",
-                ),
-                html.button(
-                    html.div("Unexpected passes", class_="button-text"),
-                    html.div(summary["xpassed"], class_="summary-result-count xpassed"),
-                    class_="count-toggle-button xpassed",
-                    title="Unexpected passes",
-                ),
-                class_="results-summary-numbers",
-            ),
-            class_="summary-info",
-        ),
-        class_="summary-details",
-    )
-    return summary_count
