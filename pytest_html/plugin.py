@@ -61,6 +61,8 @@ def pytest_addoption(parser):
                     'https://developer.mozilla.org/docs/Web/Security/CSP)')
     group.addoption('--css', action='append', metavar='path',
                     help='append given css file content to report style file.')
+    group.addoption('--js', action='append', metavar='path',
+                    help='append given js file content to report script file.')
     group.addoption('--no-group-on-worker', action='store_true',
                     help='do not group tests by their xdist worker, like they '
                     'would be grouped for things like packages, modules, and '
@@ -72,6 +74,8 @@ def pytest_configure(config):
     if htmlpath:
         for csspath in config.getoption('css') or []:
             open(csspath)
+        for jspath in config.getoption('js') or []:
+            open(jspath)
         if not hasattr(config, 'slaveinput'):
             # prevent opening htmlpath on slave nodes (xdist)
             config._html = HTMLReport(htmlpath, config)
@@ -503,20 +507,31 @@ class HTMLReport(object):
         if self.self_contained:
             html_css = html.style(raw(self.style_css))
 
-        results_tree_dict = self.results_tree_to_dict(session)
-        self.config.hook.pytest_html_results_page_css(
-            results_tree=results_tree_dict, css=html_css)
-
-        results_tree_json = json.dumps(results_tree_dict, indent=2)
-        main_js = pkg_resources.resource_string(
+        self.js_script = pkg_resources.resource_string(
             __name__, os.path.join('resources', 'main_new.js'))
         if PY3:
-            main_js = main_js.decode('utf-8')
-        my_js = main_js.replace("{results_tree}", results_tree_json)
-        my_js = my_js.replace("{project_name}", results_tree_dict["name"])
-        html_script = html.script(raw(my_js))
-        self.config.hook.pytest_html_results_page_script(
-            results_tree=results_tree_dict, script=html_script)
+            self.js_script = self.js_script.decode('utf-8')
+
+        # <DF> Add user-provided JS
+        for path in self.config.getoption('js') or []:
+            self.js_script += '\n/******************************'
+            self.js_script += '\n * CUSTOM JS'
+            self.js_script += '\n * {}'.format(path)
+            self.js_script += '\n ******************************/\n\n'
+            with open(path, 'r') as f:
+                self.js_script += f.read()
+
+        results_tree_dict = self.results_tree_to_dict(session)
+
+        results_tree_json = json.dumps(results_tree_dict, indent=2)
+
+        self.js_script += "\n\nprojectName = '{}'".format(results_tree_dict["name"])
+        self.js_script += "\n\nresultsTree = {}".format(results_tree_json)
+
+        js_ref = '{0}/{1}'.format('assets', 'script.js')
+        html_script = html.script(src=js_ref, type='text/javascript')
+        if self.self_contained:
+            html_script = html.script(raw(self.js_script))
 
         html_head = html.head(
             html.meta(charset='utf-8'),
@@ -526,8 +541,6 @@ class HTMLReport(object):
         )
 
         html_body = self._generate_body(results_tree_dict)
-        self.config.hook.pytest_html_results_page_body(
-            results_tree=results_tree_dict, body=html_body)
 
         doc = html.html()
 
@@ -537,8 +550,6 @@ class HTMLReport(object):
                 html_body,
             ],
         )
-        self.config.hook.pytest_html_results_page_html(
-            results_tree=results_tree_dict, doc=doc)
 
         unicode_doc = u'<!DOCTYPE html>\n{0}'.format(doc.unicode(indent=2))
         if PY3:
@@ -574,7 +585,10 @@ class HTMLReport(object):
     def _generate_body(self, results_tree):
         body = html.body(onload="init()")
 
-        generated_time = datetime.datetime.strptime(results_tree["suite_info"]["generated"].split(".")[0], "%Y-%I-%dT%X")
+        generated_time = datetime.datetime.strptime(
+            results_tree["suite_info"]["generated"].split(".")[0],
+            "%Y-%I-%dT%X",
+        )
         summary_div = [html.div(
             html.div(results_tree["name"], class_="project-title"),
             html.div(
