@@ -386,6 +386,43 @@ class HTMLReport(object):
             },
         }
 
+    def _get_log_from_report(self, report):
+        log = html.div(class_='log')
+        if report.longrepr:
+            for line in report.longreprtext.splitlines():
+                separator = line.startswith('_ ' * 10)
+                if separator:
+                    log.append(line[:80])
+                else:
+                    exception = line.startswith("E   ")
+                    if exception:
+                        log.append(html.span(raw(escape(line)),
+                                             class_='error'))
+                    else:
+                        log.append(raw(escape(line)))
+                log.append(html.br())
+
+        for section in report.sections:
+            header, content = map(escape, section)
+            log.append(' {0} '.format(header).center(80, '-'))
+            log.append(html.br())
+            if ANSI:
+                converter = Ansi2HTMLConverter(inline=False, escaped=False)
+                content = converter.convert(content, full=False)
+            log.append(raw(content))
+
+        if len(log) == 0:
+            log = html.div(class_='empty log')
+            log.append('No log output captured.')
+
+        unicode_log = log.unicode(indent=2)
+        if PY3:
+            # Fix encoding issues, e.g. with surrogates
+            unicode_log = unicode_log.encode('utf-8',
+                                             errors='xmlcharrefreplace')
+            unicode_log = unicode_log.decode('utf-8')
+        return unicode_log
+
     def _appendrow(self, outcome, report):
         outcome = outcome.lower()
         node_chain = None
@@ -413,7 +450,7 @@ class HTMLReport(object):
         prev_node = None
         for n in node_chain:
             if n.get("is_test", False):
-                n["log"] = get_log_from_report(report)
+                n["log"] = self._get_log_from_report(report)
             node = SerializableNode(parent=prev_node, **n)
             if node.is_test:
                 if prev_node is None:
@@ -725,6 +762,9 @@ class HTMLReport(object):
             with open(style_path, 'w', encoding='utf-8') as f:
                 f.write(self.style_css)
 
+    def pytest_fixture_setup(self, fixturedef, request):
+        fixturedef.param_index = request.param_index
+
     def pytest_runtest_logreport(self, report):
         if report.passed:
             self.append_passed(report)
@@ -751,21 +791,6 @@ class HTMLReport(object):
             self.logfile))
 
 
-def get_fixture_dependancies(name, fixturedefs):
-    if name not in fixturedefs.keys():
-        return set()
-    fix = fixturedefs[name][0]
-    dependancies = set()
-    for arg in fix.argnames:
-        dependancies.add(arg)
-        dependancies.update(get_fixture_dependancies(arg, fixturedefs))
-    return dependancies
-
-
-def pytest_fixture_setup(fixturedef, request):
-    fixturedef.param_index = request.param_index
-
-
 def get_namespace_chain(nodeid):
     try:
         param_start_index = nodeid.index("[")
@@ -778,6 +803,23 @@ def get_namespace_chain(nodeid):
     local_chain = local_chain.split("::")
     chain = package_chain + local_chain
     return chain
+
+
+def get_fixture_dependancies(name, fixturedefs):
+    """Returns a set of the names of fixtures that the given fixture depends on.
+
+    Given the ``name`` of a fixture, and a list of all fixtures used by the
+    item, this function determines the names of all the fixtures the named
+    fixture is dependant on, and returns it as a set.
+    """
+    if name not in fixturedefs.keys():
+        return set()
+    fix = fixturedefs[name][0]
+    dependancies = set()
+    for arg in fix.argnames:
+        dependancies.add(arg)
+        dependancies.update(get_fixture_dependancies(arg, fixturedefs))
+    return dependancies
 
 
 def get_parameterized_fixtures_with_effective_autouse(item):
@@ -797,17 +839,14 @@ def get_parameterized_fixtures_with_effective_autouse(item):
     for k, v in item._fixtureinfo.name2fixturedefs.items():
         fix = v[-1]
         if fix.params:
-            if hasattr(fix, "cached_result"):
-                param_description = fix.params[fix.param_index]
-                if fix.ids:
-                    # assume iterable
-                    try:
-                        param_description = fix.ids[fix.param_index]
-                    except TypeError:
-                        # assume callable
-                        param_description = fix.ids(param_description)
-            else:
-                param_description = None
+            param_description = fix.params[fix.param_index]
+            if fix.ids:
+                # assume iterable
+                try:
+                    param_description = fix.ids[fix.param_index]
+                except TypeError:
+                    # assume callable
+                    param_description = fix.ids(param_description)
         else:
             param_description = None
         autouse = getattr(
@@ -847,8 +886,10 @@ def get_parameterized_fixtures_with_effective_autouse(item):
     return param_fixtures
 
 
-def get_parameterized_simple_node_chain(item, simple_node_chain,
-                                        param_fixtures):
+def get_parameterized_simple_node_chain(item, param_fixtures):
+    namespace_chain = get_namespace_chain(item.nodeid)
+    simple_node_chain = [{"name": n, "params": []} for n in namespace_chain]
+
     SESSION_SCOPE = "session"
     MODULE_SCOPE = "module"
     CLASS_SCOPE = "class"
@@ -911,21 +952,14 @@ def get_parameterized_simple_node_chain(item, simple_node_chain,
 
 
 def get_node_chain(item, outcome, duration):
-    namespace_chain = get_namespace_chain(item.nodeid)
-    simple_node_chain = [{"name": n, "params": []} for n in namespace_chain]
-
     param_fixtures = get_parameterized_fixtures_with_effective_autouse(item)
-
     simple_node_chain = get_parameterized_simple_node_chain(
         item,
-        simple_node_chain,
         param_fixtures,
     )
 
     node_chain = []
-
     prev_node = None
-
     if not item.config.getoption('no_group_on_worker'):
         if hasattr(item.config, 'slaveinput'):
             node = SerializableNode(
@@ -1010,41 +1044,3 @@ def pytest_runtest_makereport(item, call):
         "pytest_html_report_node_chain",
         list(node.to_serializable_node_chain_link() for node in node_chain),
     ))
-
-
-def get_log_from_report(report):
-    log = html.div(class_='log')
-    if report.longrepr:
-        for line in report.longreprtext.splitlines():
-            separator = line.startswith('_ ' * 10)
-            if separator:
-                log.append(line[:80])
-            else:
-                exception = line.startswith("E   ")
-                if exception:
-                    log.append(html.span(raw(escape(line)),
-                                         class_='error'))
-                else:
-                    log.append(raw(escape(line)))
-            log.append(html.br())
-
-    for section in report.sections:
-        header, content = map(escape, section)
-        log.append(' {0} '.format(header).center(80, '-'))
-        log.append(html.br())
-        if ANSI:
-            converter = Ansi2HTMLConverter(inline=False, escaped=False)
-            content = converter.convert(content, full=False)
-        log.append(raw(content))
-
-    if len(log) == 0:
-        log = html.div(class_='empty log')
-        log.append('No log output captured.')
-
-    unicode_log = log.unicode(indent=2)
-    if PY3:
-        # Fix encoding issues, e.g. with surrogates
-        unicode_log = unicode_log.encode('utf-8',
-                                         errors='xmlcharrefreplace')
-        unicode_log = unicode_log.decode('utf-8')
-    return unicode_log
