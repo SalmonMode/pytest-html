@@ -814,30 +814,64 @@ def get_fixture_dependancies(name, fixturedefs):
     """
     if name not in fixturedefs.keys():
         return set()
-    fix = fixturedefs[name][0]
+    fix = fixturedefs[name][-1]
     dependancies = set()
     for arg in fix.argnames:
+        if arg == fix.argname:
+            # fixture depends on previously defined fixture with the same name
+            continue
         dependancies.add(arg)
         dependancies.update(get_fixture_dependancies(arg, fixturedefs))
     return dependancies
 
 
 def get_parameterized_fixtures_with_effective_autouse(item):
-    # determine all the dependancies each fixture has of other fixtures
-    dependancies = {}
-    for fname, v in item._fixtureinfo.name2fixturedefs.items():
-        fix = v[-1]
+    """Get the parameterized fixtures, and determine if they are autouse.
 
-        fix.param_index = item.callspec.indices.get(fix.argname, 0)
-        dependancies[fname] = get_fixture_dependancies(
-            fname,
-            item._fixtureinfo.name2fixturedefs,
-        )
+    If a fixture is parameterized, but not set to be autouse, it normally would
+    only be activated for test functions that either request it explicitely, or
+    indirectly by requesting another fixture that is dependant on the
+    parameterized fixture.
+
+    However, if a fixture with autouse depends on a parameterized fixture that
+    isn't autouse, then the parameterized fixture effectively becomes autouse,
+    at least for the context the depending fixture applies to. But, this only
+    becomes applicable if the both fixtures are of the same scope.
+
+    This function helps determine which parameterized fixtures are effectively
+    autouse, so their applied scopes can be branched apart to account for the
+    parameterization that impacts them.
+
+    In order to do this, there are three steps:
+
+    1.  Get a list for each fixture of what other fixtures that fixture is
+        dependant on, but only keep the lists that belong to autouse fixtures.
+    2.  Get another list of all the parameterized fixtures, and track if they
+        are autouse regardless of what depends on them.
+    3.  For each of the parameterized fixtures, if they are in any of the
+        dependancy lists from the 1st step (assuming it's of the same scope),
+        update the list from the 2nd step to mark the parameterized fixture as
+        autouse.
+
+    """
+    # determine all the dependancies each autouse fixture has of other fixtures
+    dependancies = {}
+
+    complete_fixture_defs = item._fixtureinfo.name2fixturedefs
+
+    for fname, fixdef_list in complete_fixture_defs.items():
+        fix = fixdef_list[-1]
+        if fixture_is_or_inherits_autouse(fixdef_list):
+            fix.param_index = item.callspec.indices.get(fix.argname, 0)
+            dependancies[fname] = get_fixture_dependancies(
+                fname,
+                complete_fixture_defs,
+            )
 
     # find the fixtures that are parameterized
-    param_fixtures = {}
-    for k, v in item._fixtureinfo.name2fixturedefs.items():
-        fix = v[-1]
+    param_fixtures = []
+    for k, fixdef_list in complete_fixture_defs.items():
+        fix = fixdef_list[-1]
         if fix.params:
             param_description = fix.params[fix.param_index]
             if fix.ids:
@@ -849,12 +883,10 @@ def get_parameterized_fixtures_with_effective_autouse(item):
                     param_description = fix.ids(param_description)
         else:
             param_description = None
-        autouse = getattr(
-            getattr(fix.func, "_pytestfixturefunction", True),
-            "autouse",
-            True,
+        autouse = fixture_is_or_inherits_autouse(
+            complete_fixture_defs[fix.argname],
         )
-        param_fixtures[k] = {
+        param_fix = {
             "name": fix.argname,
             "description": param_description,
             "param_index": fix.param_index,
@@ -865,25 +897,46 @@ def get_parameterized_fixtures_with_effective_autouse(item):
             "fixturedef": fix,
             "parameterized": bool(fix.params),
         }
+        param_fixtures.append(param_fix)
 
     # determine how `autouse` is being cascaded through the fixtures based
     # on fixture dependancy
-    for fixname in param_fixtures.keys():
-        for fixk, fixd in dependancies.items():
-            if not param_fixtures[fixk]["autouse"]:
-                # won't cascade autouse anyway
+    for param_fix in param_fixtures:
+        if param_fix["autouse"]:
+            # is already autouse
+            continue
+        for depending_fixname, fix_dependancies in dependancies.items():
+            depending_fix = complete_fixture_defs[depending_fixname][-1]
+            if depending_fix.scope != param_fix["scope"]:
+                # different scope, so it doesn't cascade
                 continue
-            if fixname in fixd:
-                # fixk is dependant on fixname and fixk is autouse, so
-                # fixname is now also autouse
-                param_fixtures[fixname]["autouse"] = True
+            if param_fix["name"] in fix_dependancies:
+                param_fix["autouse"] = True
                 break
-
-    param_fixtures = [d for d in param_fixtures.values()]
 
     param_fixtures = sorted(param_fixtures, key=lambda d: d["scopenum"])
 
     return param_fixtures
+
+
+def fixture_is_or_inherits_autouse(fixturedefs):
+    """Determine if this fixture, or one of its previous definitions is autouse.
+
+    Fixtures can be redefined to either override previously defined versions of
+    themselves, or extend them. The ``autouse`` aspect, however, does not get
+    overridden. So if any previously defined version of a fixture was made to
+    have ``autouse`` be ``True``, all subsequentlt defined versions would be
+    ``autouse`` as well.
+    """
+    for fixdef in fixturedefs[::-1]:
+        autouse = getattr(
+            getattr(fixdef.func, "_pytestfixturefunction", True),
+            "autouse",
+            True,
+        )
+        if autouse:
+            return True
+    return False
 
 
 def get_parameterized_simple_node_chain(item, param_fixtures):
